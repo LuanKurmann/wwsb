@@ -74,7 +74,22 @@
     </div>
     <div>
       <label for="team">Team:</label><br>
-      <input type="text" id="team" name="team">
+      <!--<input type="text" id="team" name="team">-->
+      <select id="team" name="team">
+        <!-- Optionen für jeden verfügbaren Datensatz anzeigen -->
+        <?php
+          require_once 'database.php';
+          $database = new Database();
+          $conn = $database->getConnection();
+          $stmt = $database->getWebviews();
+          while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            extract($row);
+            echo '<option value="' . $team . '">' . $team . '</option>';
+          }
+
+          // Verbindung schließen (siehe unten)
+        ?>
+      </select>
     </div>
     <div>
       <label for="title">Title:</label><br>
