@@ -2,8 +2,8 @@
 class Database {
   private $host = "localhost";
   private $db_name = "wwsb";
-  private $username = "wwsb";
-  private $password = "e8i38cY@?qG3L?q6";
+  private $username = "root";
+  private $password = "";
   private $conn;
 
   public function getConnection() {
@@ -19,10 +19,9 @@ class Database {
     return $this->conn;
   }
 
-  public function addAttribute($type, $team, $title, $short_desc, $desc) {
-    $query = "INSERT INTO news (type, team, title, short_desc, `desc`, date) VALUES (:type, :team, :title, :short_desc, :desc, NOW())";
+  public function addAttribute($team, $title, $short_desc, $desc) {
+    $query = "INSERT INTO news (type, team, title, short_desc, `desc`, date) VALUES ('', :team, :title, :short_desc, :desc, NOW())";
     $stmt = $this->conn->prepare($query);
-    $stmt->bindParam(':type', $type);
     $stmt->bindParam(':team', $team);
     $stmt->bindParam(':title', $title);
     $stmt->bindParam(':short_desc', $short_desc);
@@ -56,6 +55,14 @@ class Database {
     $query = "SELECT * FROM webview WHERE id = :id LIMIT 0,1";
     $stmt = $this->conn->prepare($query);
     $stmt->bindParam(':id', $id);
+    $stmt->execute();
+    return $stmt;
+  }
+
+  public function getResultate($team) {
+    $query = "SELECT * FROM resultate WHERE team = :team LIMIT 0,1";
+    $stmt = $this->conn->prepare($query);
+    $stmt->bindParam(':team', $team);
     $stmt->execute();
     return $stmt;
   }

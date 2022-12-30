@@ -21,12 +21,29 @@
                 // Ergebnis als JSON-Objekt parsen
                 var data = JSON.parse(this.responseText);
                 // Ausgewählte Daten in der HTML-Ansicht anzeigen
-                document.getElementById("restultate").src = data.resultalte;
+                //getResultate(data.team);
+                document.getElementById("resultate").src = data.resultalte;
                 document.getElementById("tabelle").src = data.tabelle;
-            }
+              }
             };
             xhr.open("GET", "getSelectetTeam.php?id=" + id, true);
             xhr.send();
+
+           
+        }
+
+        function getResultate(team) {
+          var xhr1 = new XMLHttpRequest();
+            xhr1.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                // Ergebnis als JSON-Objekt parsen
+                var data1 = JSON.parse(this.responseText);
+                // Ausgewählte Daten in der HTML-Ansicht anzeigen
+                document.getElementById("results").innerHTML = data1.team1 + " - " + data1.team2 + " " + data1.resultat1 + " : " + data1.resultat2;
+              }
+            };
+            xhr1.open("GET", "getResults.php?team=" + team, true);
+            xhr1.send();
         }
         
         // Event-Listener hinzufügen, um die Funktion beim Ändern des Auswahl-Felds aufzurufen
@@ -54,8 +71,11 @@
       </select>
     </form> 
     </div>
+    <div id="results">
+        
+    </div>
     <!-- Hier werden die ausgewählten Daten angezeigt -->
-    <iframe id="restultate" frameborder="0"></iframe>
+    <iframe id="resultate" frameborder="0"></iframe>
     <iframe id="tabelle" frameborder="0"></iframe>
     <?php include('partials/nav.php') ?>
 </body>

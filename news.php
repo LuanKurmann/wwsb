@@ -10,24 +10,24 @@
 </head>
 <body>
     <div class="attributes">
-	<h1>News</h1>
-    <hr>
-    <?php
-      require_once 'database.php';
-      $database = new Database();
-      $conn = $database->getConnection();
-      $stmt = $database->getAllAttributes();
-      while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        extract($row);
-        echo "<a style='text-decoration: none; color: black;' href='./newsItem.php?id={$id}'>";
-        echo "<div class='attribute'>";
-        echo "<h2 class='title'>{$title}</h2>";
-        echo "<p class='description'>{$short_desc}</p>";
-        echo "<p class='description' style='color: gray; font-size:12px;'>{$date}</p>";
-        echo "</div></a><hr>";
-      }
-    ?>
-  </div>
+      <h1>News</h1>
+      <hr>
+      <?php
+        require_once 'database.php';
+        $database = new Database();
+        $conn = $database->getConnection();
+        $stmt = $database->getAllAttributes();
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+          extract($row);
+          echo "<a style='text-decoration: none; color: black;' href='./newsItem.php?id={$id}'>";
+          echo "<div class='attribute'>";
+          echo "<h2 class='title'>{$title}</h2>";
+          echo "<p class='description'>{$short_desc}</p>";
+          echo "<p class='description' style='color: gray; font-size:12px;'>{$date}</p>";
+          echo "</div></a><hr>";
+        }
+      ?>
+    </div>
     <?php include('partials/nav.php') ?>
 </body>
 </html>
