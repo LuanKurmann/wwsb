@@ -67,7 +67,10 @@
   <form action="" method="post">
     <div>
       <label for="type">Type:</label><br>
-      <input type="text" id="type" name="type">
+      <select id="type" name="type">
+        <option value="news">News</option>
+        <option value="game">Resultat</option>
+      </select>
     </div>
     <div>
       <label for="team">Team:</label><br>
