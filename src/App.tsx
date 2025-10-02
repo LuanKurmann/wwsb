@@ -20,6 +20,7 @@ import DocumentsManagement from './pages/admin/DocumentsManagement';
 import TrainingSchedulesManagement from './pages/admin/TrainingSchedulesManagement';
 import BoardMembersManagement from './pages/admin/BoardMembersManagement';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import AllTeamsPage from './pages/public/AllTeamsPage';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/geschichte" element={<GeschichtePage />} />
             <Route path="/funktionaere" element={<FunktionaerePage />} />
+            <Route path="/teams" element={<AllTeamsPage />} /> 
             <Route path="/teams/:slug" element={<TeamPage />} />
             <Route path="/kontakt" element={<ContactPage />} />
             <Route path="/dokumente" element={<DocumentsPage />} />

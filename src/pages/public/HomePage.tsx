@@ -103,7 +103,7 @@ export default function HomePage() {
       <section
         className="relative h-[600px] bg-cover bg-center"
         style={{
-          backgroundImage: 'url(https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=1920,fit=crop/A85wNDxl5XH4bz7w/image8-YbNv3D5o38cnbPP7.jpeg)',
+          backgroundImage: 'url(/img/home.webp)',
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-blue-900/90 to-blue-600/70"></div>
@@ -116,7 +116,7 @@ export default function HomePage() {
             </p>
             <div className="flex flex-wrap gap-4">
               <Link
-                to="/teams/u21"
+                to="/teams"
                 className="px-8 py-3 bg-white text-blue-600 font-semibold rounded-md hover:bg-blue-50 transition"
               >
                 Unsere Teams

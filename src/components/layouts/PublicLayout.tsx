@@ -1,6 +1,6 @@
 import { Outlet, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Menu, X, Instagram, Facebook } from 'lucide-react';
+import { Menu, X, Instagram, Facebook, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface Team {
@@ -38,17 +38,21 @@ export default function PublicLayout() {
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link to="/" className="flex items-center">
-              <span className="text-2xl font-bold text-blue-600">WHITE WINGS</span>
-              <span className="ml-2 text-sm text-gray-500">SCHÜPFEN - BUSSWIL</span>
+            <img
+                src="/img/logo.png" // ERSETZEN SIE DIESEN PFAD
+                alt="White Wings Logo"
+                className="h-10 w-auto" // Passen Sie die Höhe (h-10) nach Bedarf an
+              />
             </Link>
 
             <div className="hidden md:flex items-center space-x-8">
               <Link to="/" className="text-gray-700 hover:text-blue-600 transition">Startseite</Link>
               <div className="relative group">
-                <button className="text-gray-700 hover:text-blue-600 transition">
+                <Link to="/teams" className="flex items-center text-gray-700 hover:text-blue-600 transition">
                   Teams
-                </button>
-                <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <ChevronDown className="w-4 h-4 ml-1 transition-transform duration-200 group-hover:rotate-180" />
+                </Link>                
+                <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-1">
                     {teams.map((team) => (
                       <Link
@@ -63,10 +67,11 @@ export default function PublicLayout() {
                 </div>
               </div>
               <div className="relative group">
-                <button className="text-gray-700 hover:text-blue-600 transition">
+                <button className="flex items-center text-gray-700 hover:text-blue-600 transition">
                   Verein
+                  <ChevronDown className="w-4 h-4 ml-1 transition-transform duration-200 group-hover:rotate-180" />
                 </button>
-                <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-1">
                     <Link
                       to="/geschichte"
