@@ -174,7 +174,6 @@ export default function PlayersManagement() {
         const teamPlayerData = selectedTeams.map(teamId => ({
           player_id: playerId,
           team_id: teamId,
-          season: '2024/2025'
         }));
 
         const { error: teamError } = await supabase

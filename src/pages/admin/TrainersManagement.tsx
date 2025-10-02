@@ -174,7 +174,6 @@ export default function TrainersManagement() {
         const teamTrainerData = selectedTeams.map(teamId => ({
           trainer_id: trainerId,
           team_id: teamId,
-          season: '2024/2025',
           is_head_coach: false
         }));
 

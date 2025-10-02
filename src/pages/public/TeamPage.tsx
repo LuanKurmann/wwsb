@@ -143,13 +143,11 @@ export default function TeamPage() {
         supabase
           .from('team_players')
           .select('*, players(*)')
-          .eq('team_id', teamData.id)
-          .eq('season', '2024/2025'),
+          .eq('team_id', teamData.id),
         supabase
           .from('team_trainers')
           .select('*, trainers(*)')
-          .eq('team_id', teamData.id)
-          .eq('season', '2024/2025'),
+          .eq('team_id', teamData.id),
         supabase
           .from('matches')
           .select('*')
