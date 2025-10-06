@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, CreditCard as Edit2, Trash2, ArrowUp, ArrowDown, Upload } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { logCreate, logUpdate, logDelete } from '../../lib/activityLog';
 
 interface Sponsor {
   id: string;
@@ -108,9 +109,21 @@ export default function SponsorsManagement() {
           .eq('id', editingSponsor.id);
 
         if (error) throw error;
+        
+        // Log the update
+        await logUpdate('sponsor', editingSponsor.id, {
+          name: sponsorData.name,
+          tier: sponsorData.tier
+        });
       } else {
-        const { error } = await supabase.from('sponsors').insert([sponsorData]);
+        const { data, error } = await supabase.from('sponsors').insert([sponsorData]).select().single();
         if (error) throw error;
+        
+        // Log the creation
+        await logCreate('sponsor', data.id, {
+          name: sponsorData.name,
+          tier: sponsorData.tier
+        });
       }
 
       setShowModal(false);
@@ -127,8 +140,13 @@ export default function SponsorsManagement() {
     if (!confirm('Are you sure you want to delete this sponsor?')) return;
 
     try {
+      const sponsorToDelete = sponsors.find(s => s.id === id);
       const { error } = await supabase.from('sponsors').delete().eq('id', id);
       if (error) throw error;
+      
+      // Log the deletion
+      await logDelete('sponsor', id, { name: sponsorToDelete?.name });
+      
       loadSponsors();
     } catch (error) {
       console.error('Error deleting sponsor:', error);

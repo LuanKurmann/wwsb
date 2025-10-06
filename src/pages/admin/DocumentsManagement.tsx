@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, CreditCard as Edit2, Trash2, FileText, Folder, Upload } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { logCreate, logUpdate, logDelete } from '../../lib/activityLog';
 
 interface Document {
   id: string;
@@ -152,9 +153,11 @@ export default function DocumentsManagement() {
           .eq('id', editingDocument.id);
 
         if (error) throw error;
+        await logUpdate('document', editingDocument.id, { title: docData.title });
       } else {
-        const { error } = await supabase.from('documents').insert([docData]);
+        const { data, error } = await supabase.from('documents').insert([docData]).select().single();
         if (error) throw error;
+        await logCreate('document', data.id, { title: docData.title });
       }
 
       setShowDocModal(false);
@@ -204,8 +207,10 @@ export default function DocumentsManagement() {
     if (!confirm('Are you sure you want to delete this document?')) return;
 
     try {
+      const docToDelete = documents.find(d => d.id === id);
       const { error } = await supabase.from('documents').delete().eq('id', id);
       if (error) throw error;
+      await logDelete('document', id, { title: docToDelete?.title });
       loadData();
     } catch (error) {
       console.error('Error deleting document:', error);
@@ -217,8 +222,10 @@ export default function DocumentsManagement() {
     if (!confirm('Are you sure you want to delete this category? Documents in this category will not be deleted.')) return;
 
     try {
+      const catToDelete = categories.find(c => c.id === id);
       const { error } = await supabase.from('document_categories').delete().eq('id', id);
       if (error) throw error;
+      await logDelete('document', id, { category: catToDelete?.name });
       loadData();
     } catch (error) {
       console.error('Error deleting category:', error);

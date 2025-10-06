@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, CreditCard as Edit2, Trash2, X, Filter, Upload, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { logCreate, logUpdate, logDelete } from '../../lib/activityLog';
 
 interface Player {
   id: string;
@@ -172,6 +173,12 @@ export default function PlayersManagement() {
           .from('team_players')
           .delete()
           .eq('player_id', playerId);
+          
+        // Log the update
+        await logUpdate('player', playerId, {
+          name: `${playerData.first_name} ${playerData.last_name}`,
+          teams: selectedTeams.length
+        });
       } else {
         const { data, error } = await supabase
           .from('players')
@@ -181,6 +188,12 @@ export default function PlayersManagement() {
 
         if (error) throw error;
         playerId = data.id;
+        
+        // Log the creation
+        await logCreate('player', playerId, {
+          name: `${playerData.first_name} ${playerData.last_name}`,
+          teams: selectedTeams.length
+        });
       }
 
       if (selectedTeams.length > 0) {
@@ -215,8 +228,15 @@ export default function PlayersManagement() {
     if (!confirm('Are you sure you want to delete this player?')) return;
 
     try {
+      const playerToDelete = allPlayers.find(p => p.id === id);
       const { error } = await supabase.from('players').delete().eq('id', id);
       if (error) throw error;
+      
+      // Log the deletion
+      await logDelete('player', id, {
+        name: `${playerToDelete?.first_name} ${playerToDelete?.last_name}`
+      });
+      
       loadPlayers();
     } catch (error) {
       console.error('Error deleting player:', error);

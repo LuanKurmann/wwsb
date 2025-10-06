@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, CreditCard as Edit2, Trash2, X, Filter, Upload } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { logCreate, logUpdate, logDelete } from '../../lib/activityLog';
 
 interface Trainer {
   id: string;
@@ -159,6 +160,12 @@ export default function TrainersManagement() {
           .from('team_trainers')
           .delete()
           .eq('trainer_id', trainerId);
+          
+        // Log the update
+        await logUpdate('trainer', trainerId, {
+          name: `${trainerData.first_name} ${trainerData.last_name}`,
+          role: trainerData.role
+        });
       } else {
         const { data, error } = await supabase
           .from('trainers')
@@ -168,6 +175,12 @@ export default function TrainersManagement() {
 
         if (error) throw error;
         trainerId = data.id;
+        
+        // Log the creation
+        await logCreate('trainer', trainerId, {
+          name: `${trainerData.first_name} ${trainerData.last_name}`,
+          role: trainerData.role
+        });
       }
 
       if (selectedTeams.length > 0) {
@@ -198,8 +211,16 @@ export default function TrainersManagement() {
     if (!confirm('Are you sure you want to delete this trainer?')) return;
 
     try {
+      const trainerToDelete = allTrainers.find(t => t.id === id);
       const { error } = await supabase.from('trainers').delete().eq('id', id);
       if (error) throw error;
+      
+      // Log the deletion
+      await logDelete('trainer', id, {
+        name: `${trainerToDelete?.first_name} ${trainerToDelete?.last_name}`,
+        role: trainerToDelete?.role
+      });
+      
       loadTrainers();
     } catch (error) {
       console.error('Error deleting trainer:', error);
