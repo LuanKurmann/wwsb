@@ -142,7 +142,7 @@ export default function TeamPage() {
       const [playersRes, trainersRes, matchesRes, schedulesRes] = await Promise.all([
         supabase
           .from('team_players')
-          .select('*, players(*)')
+          .select('jersey_number, position, photo_url, players(*)')
           .eq('team_id', teamData.id),
         supabase
           .from('team_trainers')
@@ -162,15 +162,24 @@ export default function TeamPage() {
       ]);
 
       if (playersRes.data) {
-        setPlayers(
-          playersRes.data
-            .filter((tp: any) => tp.players)
-            .map((tp: any) => ({
-              ...tp.players,
-              jersey_number: tp.jersey_number,
-              position: tp.position,
-            }))
-        );
+        const mappedPlayers = playersRes.data
+          .filter((tp: any) => tp.players)
+          .map((tp: any) => ({
+            ...tp.players,
+            jersey_number: tp.jersey_number,
+            position: tp.position,
+            photo_url: tp.photo_url,
+          }))
+          // Sortiere nach Trikotnummer
+          .sort((a, b) => {
+            // Spieler ohne Nummer ans Ende
+            if (!a.jersey_number && !b.jersey_number) return 0;
+            if (!a.jersey_number) return 1;
+            if (!b.jersey_number) return -1;
+            return a.jersey_number - b.jersey_number;
+          });
+        
+        setPlayers(mappedPlayers);
       }
 
       if (trainersRes.data) {
@@ -253,9 +262,9 @@ export default function TeamPage() {
                   <p className="font-semibold text-gray-900">
                     {player.first_name} {player.last_name}
                   </p>
-                  {player.jersey_number && (
-                    <p className="text-sm text-gray-500">#{player.jersey_number}</p>
-                  )}
+                  <p className="text-sm text-gray-500">
+                    {player.jersey_number ? `#${player.jersey_number}` : 'Nummer nicht bekannt'}
+                  </p>
                   {player.position && (
                     <p className="text-xs text-gray-400 capitalize">{player.position}</p>
                   )}

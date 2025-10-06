@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, CreditCard as Edit2, Trash2, X, Filter, Upload } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, X, Filter, Upload, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface Player {
   id: string;
   first_name: string;
   last_name: string;
-  photo_url: string | null;
   birth_date: string | null;
   is_active: boolean;
   team_assignments: Array<{
     team: { id: string; name: string };
     jersey_number: number | null;
     position: 'goalkeeper' | 'defender' | 'forward' | null;
+    photo_url: string | null;
   }>;
 }
 
@@ -32,12 +32,16 @@ export default function PlayersManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
-  const [teamDetails, setTeamDetails] = useState<Record<string, { jersey_number: string; position: string }>>({});
+  const [teamDetails, setTeamDetails] = useState<Record<string, { jersey_number: string; position: string; photo_url: string }>>({});
   const [filterTeamId, setFilterTeamId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'name' | 'team'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [playersPerPage] = useState(20);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
-    photo_url: '',
     birth_date: '',
     is_active: true,
   });
@@ -58,6 +62,7 @@ export default function PlayersManagement() {
             team_id,
             jersey_number,
             position,
+            photo_url,
             teams(id, name)
           )
         `)
@@ -74,6 +79,7 @@ export default function PlayersManagement() {
               team: tp.teams,
               jersey_number: tp.jersey_number,
               position: tp.position,
+              photo_url: tp.photo_url,
             })) || []
       }));
 
@@ -101,7 +107,7 @@ export default function PlayersManagement() {
     }
   }
 
-  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>, teamId: string) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -131,7 +137,7 @@ export default function PlayersManagement() {
         .from('photos')
         .getPublicUrl(filePath);
 
-      setFormData({ ...formData, photo_url: publicUrl });
+      updateTeamDetail(teamId, 'photo_url', publicUrl);
     } catch (error) {
       console.error('Error uploading photo:', error);
       alert('Failed to upload photo');
@@ -146,9 +152,6 @@ export default function PlayersManagement() {
     const playerData = {
       first_name: formData.first_name,
       last_name: formData.last_name,
-      jersey_number: null,
-      position: null,
-      photo_url: formData.photo_url || null,
       birth_date: formData.birth_date || null,
       is_active: formData.is_active,
     };
@@ -188,6 +191,7 @@ export default function PlayersManagement() {
             ? parseInt(teamDetails[teamId].jersey_number)
             : null,
           position: teamDetails[teamId]?.position || null,
+          photo_url: teamDetails[teamId]?.photo_url || null,
         }));
 
         const { error: teamError } = await supabase
@@ -224,7 +228,6 @@ export default function PlayersManagement() {
     setFormData({
       first_name: '',
       last_name: '',
-      photo_url: '',
       birth_date: '',
       is_active: true,
     });
@@ -238,16 +241,16 @@ export default function PlayersManagement() {
       setFormData({
         first_name: player.first_name,
         last_name: player.last_name,
-        photo_url: player.photo_url || '',
         birth_date: player.birth_date || '',
         is_active: player.is_active,
       });
       const assignments = player.team_assignments || [];
       setSelectedTeams(assignments.map((assignment) => assignment.team.id));
-      setTeamDetails(assignments.reduce((acc: Record<string, { jersey_number: string; position: string }>, assignment) => {
+      setTeamDetails(assignments.reduce((acc: Record<string, { jersey_number: string; position: string; photo_url: string }>, assignment) => {
         acc[assignment.team.id] = {
           jersey_number: assignment.jersey_number?.toString() || '',
           position: assignment.position || '',
+          photo_url: assignment.photo_url || '',
         };
         return acc;
       }, {}));
@@ -267,32 +270,77 @@ export default function PlayersManagement() {
 
       setTeamDetails(current => ({
         ...current,
-        [teamId]: current[teamId] || { jersey_number: '', position: '' },
+        [teamId]: current[teamId] || { jersey_number: '', position: '', photo_url: '' },
       }));
 
       return [...prev, teamId];
     });
   }
 
-  function updateTeamDetail(teamId: string, field: 'jersey_number' | 'position', value: string) {
+  function updateTeamDetail(teamId: string, field: 'jersey_number' | 'position' | 'photo_url', value: string) {
     setTeamDetails(prev => ({
       ...prev,
       [teamId]: {
-        ...(prev[teamId] || { jersey_number: '', position: '' }),
+        ...(prev[teamId] || { jersey_number: '', position: '', photo_url: '' }),
         [field]: value,
       },
     }));
   }
 
   useEffect(() => {
-    if (filterTeamId === '') {
-      setPlayers(allPlayers);
-    } else {
-      setPlayers(allPlayers.filter(player =>
+    let filtered = allPlayers;
+    
+    // Filter nach Team
+    if (filterTeamId !== '') {
+      filtered = filtered.filter(player =>
         player.team_assignments?.some(assignment => assignment.team.id === filterTeamId)
-      ));
+      );
     }
-  }, [filterTeamId, allPlayers]);
+    
+    // Suche
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(player => 
+        player.first_name.toLowerCase().includes(query) ||
+        player.last_name.toLowerCase().includes(query) ||
+        `${player.first_name} ${player.last_name}`.toLowerCase().includes(query)
+      );
+    }
+    
+    // Sortierung
+    filtered.sort((a, b) => {
+      if (sortBy === 'name') {
+        const nameA = `${a.last_name} ${a.first_name}`.toLowerCase();
+        const nameB = `${b.last_name} ${b.first_name}`.toLowerCase();
+        return sortOrder === 'asc' 
+          ? nameA.localeCompare(nameB)
+          : nameB.localeCompare(nameA);
+      } else {
+        // Sortiere nach Anzahl Teams
+        const countA = a.team_assignments.length;
+        const countB = b.team_assignments.length;
+        return sortOrder === 'asc' ? countA - countB : countB - countA;
+      }
+    });
+    
+    setPlayers(filtered);
+    setCurrentPage(1); // Reset zu Seite 1 bei Filteränderung
+  }, [filterTeamId, searchQuery, sortBy, sortOrder, allPlayers]);
+  
+  // Pagination
+  const indexOfLastPlayer = currentPage * playersPerPage;
+  const indexOfFirstPlayer = indexOfLastPlayer - playersPerPage;
+  const currentPlayers = players.slice(indexOfFirstPlayer, indexOfLastPlayer);
+  const totalPages = Math.ceil(players.length / playersPerPage);
+  
+  function toggleSort(field: 'name' | 'team') {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  }
 
   if (loading) {
     return (
@@ -321,23 +369,66 @@ export default function PlayersManagement() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-500" />
-          <select
-            value={filterTeamId}
-            onChange={(e) => setFilterTeamId(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">All Teams</option>
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>{team.name}</option>
-            ))}
-          </select>
-          {filterTeamId && (
+        <div className="space-y-3">
+          {/* Suchleiste */}
+          <div className="flex items-center gap-2">
+            <Search className="w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Spieler suchen (Name)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-gray-400 hover:text-gray-600"
+                title="Suche löschen"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+          
+          {/* Filter und Sortierung */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-500" />
+              <select
+                value={filterTeamId}
+                onChange={(e) => setFilterTeamId(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Alle Teams</option>
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>{team.name}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="w-4 h-4 text-gray-500" />
+              <select
+                value={`${sortBy}-${sortOrder}`}
+                onChange={(e) => {
+                  const [field, order] = e.target.value.split('-') as ['name' | 'team', 'asc' | 'desc'];
+                  setSortBy(field);
+                  setSortOrder(order);
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+                <option value="team-desc">Meiste Teams</option>
+                <option value="team-asc">Wenigste Teams</option>
+              </select>
+            </div>
+            
             <span className="text-sm text-gray-600">
-              {players.length} player{players.length !== 1 ? 's' : ''} found
+              {players.length} Spieler{players.length !== 1 ? '' : ''} gefunden
             </span>
-          )}
+          </div>
         </div>
       </div>
 
@@ -352,7 +443,7 @@ export default function PlayersManagement() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {players.map((player) => (
+            {currentPlayers.map((player) => (
               <tr key={player.id}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
@@ -399,6 +490,68 @@ export default function PlayersManagement() {
             ))}
           </tbody>
         </table>
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Zurück
+              </button>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Weiter
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Zeige <span className="font-medium">{indexOfFirstPlayer + 1}</span> bis{' '}
+                  <span className="font-medium">{Math.min(indexOfLastPlayer, players.length)}</span> von{' '}
+                  <span className="font-medium">{players.length}</span> Spielern
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                        page === currentPage
+                          ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {showModal && (
@@ -442,52 +595,25 @@ export default function PlayersManagement() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Photo</label>
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <input
-                        type="url"
-                        value={formData.photo_url}
-                        onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
-                        placeholder="https://example.com/photo.jpg"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">or</span>
-                      <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
-                        <Upload className="w-4 h-4" />
-                        <span className="text-sm">{uploadingPhoto ? 'Uploading...' : 'Upload Photo'}</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoUpload}
-                          disabled={uploadingPhoto}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                    {formData.photo_url && (
-                      <img src={formData.photo_url} alt="Preview" className="w-24 h-24 object-cover rounded" />
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Teams</label>
-                  <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
+                <div className="border-t border-gray-200 pt-4">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Team-Zuweisungen *
+                  </label>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Wählen Sie Teams aus und setzen Sie für jedes Team die Trikotnummer, Position und Foto.
+                  </p>
+                  <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto bg-gray-50">
                     {teams.length > 0 ? (
                       <div className="space-y-2">
                         {teams.map((team) => (
-                          <label key={team.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                          <label key={team.id} className="flex items-center space-x-2 cursor-pointer hover:bg-white p-2 rounded transition">
                             <input
                               type="checkbox"
                               checked={selectedTeams.includes(team.id)}
                               onChange={() => toggleTeam(team.id)}
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                             />
-                            <span className="text-sm text-gray-700">{team.name}</span>
+                            <span className="text-sm text-gray-700 font-medium">{team.name}</span>
                           </label>
                         ))}
                       </div>
@@ -516,17 +642,26 @@ export default function PlayersManagement() {
                   )}
                 </div>
 
-                {selectedTeams.length > 0 && (
+                {selectedTeams.length === 0 ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-center">
+                    <p className="text-sm text-blue-800">
+                      👆 Bitte wählen Sie mindestens ein Team aus, um Trikotnummer, Position und Foto zu setzen.
+                    </p>
+                  </div>
+                ) : (
                   <div className="space-y-4">
+                    <div className="border-t border-gray-200 pt-2">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Team-spezifische Details</h4>
+                    </div>
                     {selectedTeams.map((teamId) => {
                       const team = teams.find(t => t.id === teamId);
                       if (!team) return null;
-                      const details = teamDetails[teamId] || { jersey_number: '', position: '' };
+                      const details = teamDetails[teamId] || { jersey_number: '', position: '', photo_url: '' };
 
                       return (
-                        <div key={teamId} className="border border-gray-200 rounded-md p-4">
+                        <div key={teamId} className="border border-blue-200 bg-blue-50 rounded-md p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-sm font-semibold text-gray-900">{team.name}</h4>
+                            <h4 className="text-sm font-semibold text-gray-900">📋 {team.name}</h4>
                             <button
                               type="button"
                               onClick={() => toggleTeam(teamId)}
@@ -535,28 +670,70 @@ export default function PlayersManagement() {
                               Remove
                             </button>
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Jersey Number</label>
-                              <input
-                                type="number"
-                                value={details.jersey_number}
-                                onChange={(e) => updateTeamDetail(teamId, 'jersey_number', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              />
+                          <div className="space-y-4 bg-white p-3 rounded">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Trikotnummer
+                                </label>
+                                <input
+                                  type="number"
+                                  value={details.jersey_number}
+                                  onChange={(e) => updateTeamDetail(teamId, 'jersey_number', e.target.value)}
+                                  placeholder="z.B. 10"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Position
+                                </label>
+                                <select
+                                  value={details.position}
+                                  onChange={(e) => updateTeamDetail(teamId, 'position', e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                  <option value="">Position wählen</option>
+                                  <option value="goalkeeper">Goalkeeper</option>
+                                  <option value="defender">Defender</option>
+                                  <option value="forward">Forward</option>
+                                </select>
+                              </div>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
-                              <select
-                                value={details.position}
-                                onChange={(e) => updateTeamDetail(teamId, 'position', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                <option value="">Select position</option>
-                                <option value="goalkeeper">Goalkeeper</option>
-                                <option value="defender">Defender</option>
-                                <option value="forward">Forward</option>
-                              </select>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Spielerfoto
+                              </label>
+                              <div className="space-y-2">
+                                <div className="flex gap-2">
+                                  <input
+                                    type="url"
+                                    value={details.photo_url}
+                                    onChange={(e) => updateTeamDetail(teamId, 'photo_url', e.target.value)}
+                                    placeholder="https://example.com/photo.jpg"
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-gray-500">oder</span>
+                                  <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+                                    <Upload className="w-4 h-4" />
+                                    <span className="text-sm">{uploadingPhoto ? 'Wird hochgeladen...' : 'Foto hochladen'}</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => handlePhotoUpload(e, teamId)}
+                                      disabled={uploadingPhoto}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                </div>
+                                {details.photo_url && (
+                                  <div className="mt-2">
+                                    <img src={details.photo_url} alt="Preview" className="w-24 h-24 object-cover rounded border-2 border-gray-200" />
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
