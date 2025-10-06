@@ -9,6 +9,7 @@ import RankingTable from '../../components/games/RankingTable';
 interface Team {
   id: string;
   name: string;
+  display_name: string | null;
   description: string | null;
   team_photo_url: string | null;
   api_id: string | null;
@@ -219,26 +220,29 @@ export default function TeamPage() {
     );
   }
 
+  const displayName = team.display_name || team.name;
+
   return (
     <div>
       <section className="bg-gradient-to-r from-blue-600 to-blue-400 text-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-5xl font-bold mb-4">{team.name}</h1>
-          {team.description && <p className="text-xl">{team.description}</p>}
+          <div className="flex flex-col items-center gap-8 text-center">
+            {team.team_photo_url && (
+              <div className="w-full flex justify-center">
+                <img
+                  src={team.team_photo_url}
+                  alt={displayName}
+                  className="max-w-lg md:max-w-2xl max-h-96 md:max-h-[600px] w-auto h-auto object-contain rounded-lg shadow-2xl bg-white/10 p-4"
+                />
+              </div>
+            )}
+            <div className="max-w-4xl">
+              <h1 className="text-5xl md:text-6xl font-bold mb-4">{displayName}</h1>
+              {team.description && <p className="text-xl md:text-2xl text-blue-100">{team.description}</p>}
+            </div>
+          </div>
         </div>
       </section>
-
-      {team.team_photo_url && (
-        <section className="py-8 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <img
-              src={team.team_photo_url}
-              alt={team.name}
-              className="w-full max-w-4xl mx-auto rounded-lg shadow-lg"
-            />
-          </div>
-        </section>
-      )}
 
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
