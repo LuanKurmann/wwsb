@@ -7,6 +7,7 @@ import { logCreate, logUpdate, logDelete } from '../../lib/activityLog';
 interface Team {
   id: string;
   name: string;
+  display_name: string | null;
   slug: string;
   category: string;
   description: string | null;
@@ -24,6 +25,7 @@ export default function TeamsManagement() {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    display_name: '',
     slug: '',
     category: '',
     description: '',
@@ -179,6 +181,7 @@ export default function TeamsManagement() {
   function resetForm() {
     setFormData({
       name: '',
+      display_name: '',
       slug: '',
       category: '',
       description: '',
@@ -195,6 +198,7 @@ export default function TeamsManagement() {
       setEditingTeam(team);
       setFormData({
         name: team.name,
+        display_name: team.display_name || '',
         slug: team.slug,
         category: team.category,
         description: team.description || '',
@@ -311,7 +315,7 @@ export default function TeamsManagement() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name (von API)</label>
                     <input
                       type="text"
                       required
@@ -320,6 +324,21 @@ export default function TeamsManagement() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Anzeigename (optional)
+                      <span className="text-xs text-gray-500 ml-2">Wird anstelle vom Name angezeigt</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.display_name}
+                      onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                      placeholder="Leer lassen für Standard-Name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Slug</label>
                     <input

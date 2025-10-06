@@ -40,10 +40,10 @@ async function syncTeams() {
   
   console.log(`✅ ${apiTeams.length} Teams gefunden`);
   
-  // Hole alle Teams aus DB mit swiss_id
+  // Hole alle Teams aus DB mit swiss_id (inkl. display_name zum Schutz)
   const { data: dbTeams, error: dbError } = await supabase
     .from('teams')
-    .select('id, swiss_id, name')
+    .select('id, swiss_id, name, display_name')
     .not('swiss_id', 'is', null);
   
   if (dbError) throw dbError;
@@ -63,10 +63,11 @@ async function syncTeams() {
       slug: apiTeam.TeamAlias.toLowerCase().replace(/\s+/g, '-'),
       team_photo_url: apiTeam.TeamBanner?.PictureURLimage800 || null,
       is_active: true,
+      // WICHTIG: display_name wird NICHT überschrieben, bleibt bestehen
     };
     
     if (dbTeam) {
-      // UPDATE
+      // UPDATE - display_name wird bewusst NICHT im Update enthalten, um es zu schützen
       const { error } = await supabase
         .from('teams')
         .update(teamData)

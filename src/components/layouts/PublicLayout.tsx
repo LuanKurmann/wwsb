@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 interface Team {
   id: string;
   name: string;
+  display_name: string | null;
   slug: string;
 }
 
@@ -21,7 +22,7 @@ export default function PublicLayout() {
     try {
       const { data, error } = await supabase
         .from('teams')
-        .select('id, name, slug')
+        .select('id, name, display_name, slug')
         .eq('is_active', true)
         .order('display_order');
 
@@ -60,7 +61,7 @@ export default function PublicLayout() {
                         to={`/teams/${team.slug}`}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
                       >
-                        {team.name}
+                        {team.display_name || team.name}
                       </Link>
                     ))}
                   </div>
@@ -125,7 +126,7 @@ export default function PublicLayout() {
                     className="text-gray-700 hover:text-blue-600 transition pl-4"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    {team.name}
+                    {team.display_name || team.name}
                   </Link>
                 ))}
                 <div className="text-gray-500 text-sm font-semibold">Verein</div>

@@ -6,6 +6,7 @@ import { Shield } from 'lucide-react';
 interface Team {
   id: string;
   name: string;
+  display_name: string | null;
   slug: string;
   category: string;
   description: string | null;
@@ -79,7 +80,7 @@ export default function AllTeamsPage() {
                     </span>
                   </div>
                   <div className="p-5">
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">{team.name}</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">{team.display_name || team.name}</h2>
                     {team.description ? (
                         <p className="text-sm text-gray-600 line-clamp-3">
                            {team.description}
