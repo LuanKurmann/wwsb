@@ -19,6 +19,8 @@ import SponsorsManagement from './pages/admin/SponsorsManagement';
 import DocumentsManagement from './pages/admin/DocumentsManagement';
 import TrainingSchedulesManagement from './pages/admin/TrainingSchedulesManagement';
 import BoardMembersManagement from './pages/admin/BoardMembersManagement';
+import MessagesManagement from './pages/admin/MessagesManagement';
+import ActivityLogsPage from './pages/admin/ActivityLogsPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AllTeamsPage from './pages/public/AllTeamsPage';
 
@@ -57,6 +59,8 @@ function App() {
             <Route path="board-members" element={<BoardMembersManagement />} />
             <Route path="sponsors" element={<SponsorsManagement />} />
             <Route path="documents" element={<DocumentsManagement />} />
+            <Route path="messages" element={<MessagesManagement />} />
+            <Route path="activity-logs" element={<ActivityLogsPage />} />
           </Route>
         </Routes>
       </AuthProvider>

@@ -59,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(profileData);
 
     if (profileData && profileData.status === 'active') {
+      // Load user roles from user_roles table
       const { data: rolesData } = await supabase
         .from('user_roles')
         .select('*, roles(*)')

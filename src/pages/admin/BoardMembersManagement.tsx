@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, CreditCard as Edit2, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { logCreate, logUpdate, logDelete } from '../../lib/activityLog';
 
 interface BoardMember {
   id: string;
@@ -118,9 +119,11 @@ export default function BoardMembersManagement() {
           .eq('id', editingMember.id);
 
         if (error) throw error;
+        await logUpdate('board_member', editingMember.id, { name: `${memberData.first_name} ${memberData.last_name}`, position: memberData.position });
       } else {
-        const { error } = await supabase.from('board_members').insert([memberData]);
+        const { data, error } = await supabase.from('board_members').insert([memberData]).select().single();
         if (error) throw error;
+        await logCreate('board_member', data.id, { name: `${memberData.first_name} ${memberData.last_name}`, position: memberData.position });
       }
 
       setShowModal(false);
@@ -137,8 +140,10 @@ export default function BoardMembersManagement() {
     if (!confirm('Are you sure you want to delete this board member?')) return;
 
     try {
+      const memberToDelete = members.find(m => m.id === id);
       const { error } = await supabase.from('board_members').delete().eq('id', id);
       if (error) throw error;
+      await logDelete('board_member', id, { name: `${memberToDelete?.first_name} ${memberToDelete?.last_name}`, position: memberToDelete?.position });
       loadMembers();
     } catch (error) {
       console.error('Error deleting board member:', error);

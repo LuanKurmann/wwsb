@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, CreditCard as Edit2, Trash2, ArrowUp, ArrowDown, Upload } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { logCreate, logUpdate, logDelete } from '../../lib/activityLog';
 
 interface Team {
   id: string;
@@ -104,9 +105,20 @@ export default function TeamsManagement() {
           .eq('id', editingTeam.id);
 
         if (error) throw error;
+        
+        // Log the update
+        await logUpdate('team', editingTeam.id, {
+          name: formData.name,
+          changes: Object.keys(formData).filter(key => 
+            (formData as any)[key] !== (editingTeam as any)[key]
+          )
+        });
       } else {
-        const { error } = await supabase.from('teams').insert([formData]);
+        const { data, error } = await supabase.from('teams').insert([formData]).select().single();
         if (error) throw error;
+        
+        // Log the creation
+        await logCreate('team', data.id, { name: formData.name });
       }
 
       setShowModal(false);
@@ -123,8 +135,13 @@ export default function TeamsManagement() {
     if (!confirm('Are you sure you want to delete this team?')) return;
 
     try {
+      const teamToDelete = teams.find(t => t.id === id);
       const { error } = await supabase.from('teams').delete().eq('id', id);
       if (error) throw error;
+      
+      // Log the deletion
+      await logDelete('team', id, { name: teamToDelete?.name });
+      
       loadTeams();
     } catch (error) {
       console.error('Error deleting team:', error);

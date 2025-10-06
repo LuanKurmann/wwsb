@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 export default function ContactPage() {
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     phone: '',
     message: '',
   });
@@ -23,7 +24,7 @@ export default function ContactPage() {
       if (error) throw error;
 
       setSuccess(true);
-      setFormData({ name: '', phone: '', message: '' });
+      setFormData({ name: '', email: '', phone: '', message: '' });
       setTimeout(() => setSuccess(false), 5000);
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -121,16 +122,30 @@ export default function ContactPage() {
             </div>
 
             <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Ihre E-Mail *
+              </label>
+              <input
+                type="email"
+                id="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="Geben Sie Ihre E-Mail-Adresse ein"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                Ihre Telefonnummer *
+                Ihre Telefonnummer
               </label>
               <input
                 type="tel"
                 id="phone"
-                required
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="Geben Sie Ihre Telefonnummer ein"
+                placeholder="Geben Sie Ihre Telefonnummer ein (optional)"
                 className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
