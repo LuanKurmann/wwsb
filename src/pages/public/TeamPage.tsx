@@ -162,7 +162,15 @@ export default function TeamPage() {
       ]);
 
       if (playersRes.data) {
-        setPlayers(playersRes.data.map((tp: any) => tp.players));
+        setPlayers(
+          playersRes.data
+            .filter((tp: any) => tp.players)
+            .map((tp: any) => ({
+              ...tp.players,
+              jersey_number: tp.jersey_number,
+              position: tp.position,
+            }))
+        );
       }
 
       if (trainersRes.data) {

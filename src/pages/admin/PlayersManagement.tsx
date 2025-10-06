@@ -7,12 +7,14 @@ interface Player {
   id: string;
   first_name: string;
   last_name: string;
-  jersey_number: number | null;
-  position: 'goalkeeper' | 'defender' | 'forward' | null;
   photo_url: string | null;
   birth_date: string | null;
   is_active: boolean;
-  teams?: Array<{ id: string; name: string; }>;
+  team_assignments: Array<{
+    team: { id: string; name: string };
+    jersey_number: number | null;
+    position: 'goalkeeper' | 'defender' | 'forward' | null;
+  }>;
 }
 
 interface Team {
@@ -30,12 +32,11 @@ export default function PlayersManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [teamDetails, setTeamDetails] = useState<Record<string, { jersey_number: string; position: string }>>({});
   const [filterTeamId, setFilterTeamId] = useState<string>('');
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
-    jersey_number: '',
-    position: '',
     photo_url: '',
     birth_date: '',
     is_active: true,
@@ -53,8 +54,10 @@ export default function PlayersManagement() {
         .from('players')
         .select(`
           *,
-          team_players!inner(
+          team_players(
             team_id,
+            jersey_number,
+            position,
             teams(id, name)
           )
         `)
@@ -64,7 +67,14 @@ export default function PlayersManagement() {
 
       const playersWithTeams = (data || []).map((player: any) => ({
         ...player,
-        teams: player.team_players?.map((tp: any) => tp.teams).filter(Boolean) || []
+        team_assignments:
+          player.team_players?.
+            filter((tp: any) => tp.teams).
+            map((tp: any) => ({
+              team: tp.teams,
+              jersey_number: tp.jersey_number,
+              position: tp.position,
+            })) || []
       }));
 
       setAllPlayers(playersWithTeams);
@@ -136,8 +146,8 @@ export default function PlayersManagement() {
     const playerData = {
       first_name: formData.first_name,
       last_name: formData.last_name,
-      jersey_number: formData.jersey_number ? parseInt(formData.jersey_number) : null,
-      position: formData.position || null,
+      jersey_number: null,
+      position: null,
       photo_url: formData.photo_url || null,
       birth_date: formData.birth_date || null,
       is_active: formData.is_active,
@@ -174,6 +184,10 @@ export default function PlayersManagement() {
         const teamPlayerData = selectedTeams.map(teamId => ({
           player_id: playerId,
           team_id: teamId,
+          jersey_number: teamDetails[teamId]?.jersey_number
+            ? parseInt(teamDetails[teamId].jersey_number)
+            : null,
+          position: teamDetails[teamId]?.position || null,
         }));
 
         const { error: teamError } = await supabase
@@ -210,13 +224,12 @@ export default function PlayersManagement() {
     setFormData({
       first_name: '',
       last_name: '',
-      jersey_number: '',
-      position: '',
       photo_url: '',
       birth_date: '',
       is_active: true,
     });
     setSelectedTeams([]);
+    setTeamDetails({});
   }
 
   function openModal(player?: Player) {
@@ -225,13 +238,19 @@ export default function PlayersManagement() {
       setFormData({
         first_name: player.first_name,
         last_name: player.last_name,
-        jersey_number: player.jersey_number?.toString() || '',
-        position: player.position || '',
         photo_url: player.photo_url || '',
         birth_date: player.birth_date || '',
         is_active: player.is_active,
       });
-      setSelectedTeams(player.teams?.map(t => t.id) || []);
+      const assignments = player.team_assignments || [];
+      setSelectedTeams(assignments.map((assignment) => assignment.team.id));
+      setTeamDetails(assignments.reduce((acc: Record<string, { jersey_number: string; position: string }>, assignment) => {
+        acc[assignment.team.id] = {
+          jersey_number: assignment.jersey_number?.toString() || '',
+          position: assignment.position || '',
+        };
+        return acc;
+      }, {}));
     } else {
       setEditingPlayer(null);
       resetForm();
@@ -240,11 +259,29 @@ export default function PlayersManagement() {
   }
 
   function toggleTeam(teamId: string) {
-    setSelectedTeams(prev =>
-      prev.includes(teamId)
-        ? prev.filter(id => id !== teamId)
-        : [...prev, teamId]
-    );
+    setSelectedTeams(prev => {
+      const isSelected = prev.includes(teamId);
+      if (isSelected) {
+        return prev.filter(id => id !== teamId);
+      }
+
+      setTeamDetails(current => ({
+        ...current,
+        [teamId]: current[teamId] || { jersey_number: '', position: '' },
+      }));
+
+      return [...prev, teamId];
+    });
+  }
+
+  function updateTeamDetail(teamId: string, field: 'jersey_number' | 'position', value: string) {
+    setTeamDetails(prev => ({
+      ...prev,
+      [teamId]: {
+        ...(prev[teamId] || { jersey_number: '', position: '' }),
+        [field]: value,
+      },
+    }));
   }
 
   useEffect(() => {
@@ -252,7 +289,7 @@ export default function PlayersManagement() {
       setPlayers(allPlayers);
     } else {
       setPlayers(allPlayers.filter(player =>
-        player.teams?.some(team => team.id === filterTeamId)
+        player.team_assignments?.some(assignment => assignment.team.id === filterTeamId)
       ));
     }
   }, [filterTeamId, allPlayers]);
@@ -309,9 +346,7 @@ export default function PlayersManagement() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Number</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teams</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Team Assignments</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
@@ -324,24 +359,24 @@ export default function PlayersManagement() {
                     {player.first_name} {player.last_name}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {player.jersey_number ? `#${player.jersey_number}` : '-'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                  {player.position || '-'}
-                </td>
                 <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-1">
-                    {player.teams && player.teams.length > 0 ? (
-                      player.teams.map(team => (
-                        <span key={team.id} className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                          {team.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-sm text-gray-400">No teams</span>
-                    )}
-                  </div>
+                  {player.team_assignments.length > 0 ? (
+                    <div className="space-y-1">
+                      {player.team_assignments.map((assignment) => (
+                        <div key={assignment.team.id} className="text-sm text-gray-700">
+                          <span className="font-medium text-gray-900">{assignment.team.name}</span>
+                          <span className="ml-2 text-gray-500">
+                            {assignment.jersey_number ? `#${assignment.jersey_number}` : 'No number'}
+                          </span>
+                          <span className="ml-2 text-gray-500 capitalize">
+                            {assignment.position || 'No position'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">No teams assigned</span>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${player.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
@@ -394,31 +429,6 @@ export default function PlayersManagement() {
                       onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Jersey Number</label>
-                    <input
-                      type="number"
-                      value={formData.jersey_number}
-                      onChange={(e) => setFormData({ ...formData, jersey_number: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
-                    <select
-                      value={formData.position}
-                      onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select position</option>
-                      <option value="goalkeeper">Goalkeeper</option>
-                      <option value="defender">Defender</option>
-                      <option value="forward">Forward</option>
-                    </select>
                   </div>
                 </div>
 
@@ -505,6 +515,55 @@ export default function PlayersManagement() {
                     </div>
                   )}
                 </div>
+
+                {selectedTeams.length > 0 && (
+                  <div className="space-y-4">
+                    {selectedTeams.map((teamId) => {
+                      const team = teams.find(t => t.id === teamId);
+                      if (!team) return null;
+                      const details = teamDetails[teamId] || { jersey_number: '', position: '' };
+
+                      return (
+                        <div key={teamId} className="border border-gray-200 rounded-md p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-semibold text-gray-900">{team.name}</h4>
+                            <button
+                              type="button"
+                              onClick={() => toggleTeam(teamId)}
+                              className="text-xs text-red-600 hover:text-red-800"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Jersey Number</label>
+                              <input
+                                type="number"
+                                value={details.jersey_number}
+                                onChange={(e) => updateTeamDetail(teamId, 'jersey_number', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                              <select
+                                value={details.position}
+                                onChange={(e) => updateTeamDetail(teamId, 'position', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                <option value="">Select position</option>
+                                <option value="goalkeeper">Goalkeeper</option>
+                                <option value="defender">Defender</option>
+                                <option value="forward">Forward</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <div className="flex items-center">
                   <input
