@@ -15,6 +15,7 @@ interface Team {
   contact_email: string | null;
   display_order: number;
   is_active: boolean;
+  swiss_id: number | null;
 }
 
 export default function TeamsManagement() {
@@ -101,9 +102,14 @@ export default function TeamsManagement() {
 
     try {
       if (editingTeam) {
+        // If team has swiss_id, only allow updating display_name
+        const updateData = editingTeam.swiss_id 
+          ? { display_name: formData.display_name }
+          : formData;
+        
         const { error } = await supabase
           .from('teams')
-          .update(formData)
+          .update(updateData)
           .eq('id', editingTeam.id);
 
         if (error) throw error;
@@ -111,8 +117,8 @@ export default function TeamsManagement() {
         // Log the update
         await logUpdate('team', editingTeam.id, {
           name: formData.name,
-          changes: Object.keys(formData).filter(key => 
-            (formData as any)[key] !== (editingTeam as any)[key]
+          changes: Object.keys(updateData).filter(key => 
+            (updateData as any)[key] !== (editingTeam as any)[key]
           )
         });
       } else {
@@ -134,10 +140,16 @@ export default function TeamsManagement() {
   }
 
   async function deleteTeam(id: string) {
+    const teamToDelete = teams.find(t => t.id === id);
+    
+    if (teamToDelete?.swiss_id) {
+      alert('Teams von Swiss Unihockey API können nicht gelöscht werden.');
+      return;
+    }
+    
     if (!confirm('Are you sure you want to delete this team?')) return;
 
     try {
-      const teamToDelete = teams.find(t => t.id === id);
       const { error } = await supabase.from('teams').delete().eq('id', id);
       if (error) throw error;
       
@@ -255,8 +267,19 @@ export default function TeamsManagement() {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {teams.map((team) => (
-              <tr key={team.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{team.name}</td>
+              <tr key={team.id} className={team.swiss_id ? 'bg-gray-50' : ''}>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium text-gray-900">
+                      {team.display_name || team.name}
+                    </div>
+                    {team.swiss_id && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800" title="Von Swiss Unihockey API synchronisiert">
+                        🇨🇭 API
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{team.category}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{team.slug}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -289,12 +312,21 @@ export default function TeamsManagement() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   {canEdit && (
-                    <button onClick={() => openModal(team)} className="text-blue-600 hover:text-blue-900 mr-4" title="Edit team">
+                    <button 
+                      onClick={() => openModal(team)} 
+                      className="text-blue-600 hover:text-blue-900 mr-4"
+                      title={team.swiss_id ? 'Anzeigename bearbeiten' : 'Edit team'}
+                    >
                       <Edit2 className="w-4 h-4" />
                     </button>
                   )}
                   {isAdmin && (
-                    <button onClick={() => deleteTeam(team.id)} className="text-red-600 hover:text-red-900" title="Delete team">
+                    <button 
+                      onClick={() => deleteTeam(team.id)} 
+                      className={team.swiss_id ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'}
+                      title={team.swiss_id ? 'Team von Swiss Unihockey API - kann nicht gelöscht werden' : 'Delete team'}
+                      disabled={!!team.swiss_id}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
@@ -310,24 +342,23 @@ export default function TeamsManagement() {
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h3 className="text-lg font-semibold mb-4">
-                {editingTeam ? 'Edit Team' : 'Add Team'}
+                {editingTeam ? (editingTeam.swiss_id ? 'Anzeigename bearbeiten' : 'Edit Team') : 'Add Team'}
               </h3>
+              {editingTeam?.swiss_id && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-800">
+                    <span className="font-semibold">ℹ️ Swiss Unihockey Team:</span> Dieses Team wird von der API synchronisiert. 
+                    Sie können nur den Anzeigenamen bearbeiten.
+                  </p>
+                </div>
+              )}
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name (von API)</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
+                {editingTeam?.swiss_id ? (
+                  // Only show display_name for API teams
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Anzeigename (optional)
-                      <span className="text-xs text-gray-500 ml-2">Wird anstelle vom Name angezeigt</span>
+                      <span className="text-xs text-gray-500 ml-2">Wird anstelle von "{editingTeam.name}" angezeigt</span>
                     </label>
                     <input
                       type="text"
@@ -337,98 +368,128 @@ export default function TeamsManagement() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Slug</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.slug}
-                      onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Team Photo</label>
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Name (von API)</label>
                       <input
-                        type="url"
-                        value={formData.team_photo_url}
-                        onChange={(e) => setFormData({ ...formData, team_photo_url: e.target.value })}
-                        placeholder="https://example.com/photo.jpg"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
                       />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">or</span>
-                      <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
-                        <Upload className="w-4 h-4" />
-                        <span className="text-sm">{uploadingPhoto ? 'Uploading...' : 'Upload Photo'}</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoUpload}
-                          disabled={uploadingPhoto}
-                          className="hidden"
-                        />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Anzeigename (optional)
+                        <span className="text-xs text-gray-500 ml-2">Wird anstelle vom Name angezeigt</span>
                       </label>
+                      <input
+                        type="text"
+                        value={formData.display_name}
+                        onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                        placeholder="Leer lassen für Standard-Name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
                     </div>
-                    {formData.team_photo_url && (
-                      <img src={formData.team_photo_url} alt="Preview" className="w-24 h-24 object-cover rounded" />
-                    )}
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
-                  <input
-                    type="email"
-                    value={formData.contact_email}
-                    onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Swissunihockey API Team ID</label>
-                  <input
-                    type="text"
-                    value={formData.api_id}
-                    onChange={(e) => setFormData({ ...formData, api_id: e.target.value })}
-                    placeholder="430656"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Team ID von Swissunihockey für Spielanzeige</p>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_active}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="mr-2"
-                  />
-                  <label className="text-sm font-medium text-gray-700">Active</label>
-                </div>
+                )}
+                {!editingTeam?.swiss_id && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+                        <input
+                          type="text"
+                          required
+                          value={formData.slug}
+                          onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.category}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Team Photo</label>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            value={formData.team_photo_url}
+                            onChange={(e) => setFormData({ ...formData, team_photo_url: e.target.value })}
+                            placeholder="https://example.com/photo.jpg"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-500">or</span>
+                          <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+                            <Upload className="w-4 h-4" />
+                            <span className="text-sm">{uploadingPhoto ? 'Uploading...' : 'Upload Photo'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePhotoUpload}
+                              disabled={uploadingPhoto}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                        {formData.team_photo_url && (
+                          <img src={formData.team_photo_url} alt="Preview" className="w-24 h-24 object-cover rounded" />
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
+                      <input
+                        type="email"
+                        value={formData.contact_email}
+                        onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Swissunihockey API Team ID</label>
+                      <input
+                        type="text"
+                        value={formData.api_id}
+                        onChange={(e) => setFormData({ ...formData, api_id: e.target.value })}
+                        placeholder="430656"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Team ID von Swissunihockey für Spielanzeige</p>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_active}
+                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                        className="mr-2"
+                      />
+                      <label className="text-sm font-medium text-gray-700">Active</label>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-end space-x-3 mt-6">
                   <button
                     type="button"

@@ -84,12 +84,13 @@ export default function ContactPage() {
 
           <div className="bg-gray-100 rounded-lg overflow-hidden mb-16">
             <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2707.5!2d7.2!3d47.0!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNDfCsDAwJzAwLjAiTiA3wrAxMicwMC4wIkU!5e0!3m2!1sen!2sch!4v1234567890"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2704.648753166983!2d7.334456776919635!3d47.32578111116675!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x478e09b8e3b5f8a3%3A0xf67af9a03b105c53!2sSporthalle%20Sch%C3%BCpfen!5e0!3m2!1sde!2sch!4v1709738400000!5m2!1sde!2sch"
               width="100%"
               height="400"
               style={{ border: 0 }}
               allowFullScreen
               loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
             ></iframe>
           </div>
         </div>

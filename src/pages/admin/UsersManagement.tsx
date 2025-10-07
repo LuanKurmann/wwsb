@@ -1,15 +1,36 @@
 import { useEffect, useState } from 'react';
 import { supabase, Profile, UserRole, UserRoleData } from '../../lib/supabase';
-import { CheckCircle, XCircle, UserPlus } from 'lucide-react';
+import { CheckCircle, XCircle, UserPlus, Search, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { deleteUserAccount } from '../../lib/userManagement';
+
+interface UserWithTeams extends Profile {
+  player?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    teams: Array<{
+      id: string;
+      name: string;
+      display_name: string | null;
+    }>;
+  } | null;
+}
 
 export default function UsersManagement() {
-  const [users, setUsers] = useState<Profile[]>([]);
+  const [users, setUsers] = useState<UserWithTeams[]>([]);
   const [userRoles, setUserRoles] = useState<Record<string, UserRole[]>>({});
   const [roles, setRoles] = useState<{ id: string; name: UserRole; description: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const { isSuperAdmin } = useAuth();
+  
+  // Filter & Pagination
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     loadData();
@@ -23,19 +44,49 @@ export default function UsersManagement() {
       ]);
 
       if (usersRes.data) {
-        setUsers(usersRes.data);
-
+        // Load users with player/team info
+        const usersWithTeams: UserWithTeams[] = [];
         const rolesMap: Record<string, UserRole[]> = {};
+        
         for (const user of usersRes.data) {
-          const { data } = await supabase
+          // Get user roles
+          const { data: userRolesData } = await supabase
             .from('user_roles')
             .select('*, roles(*)')
             .eq('user_id', user.id);
 
-          if (data) {
-            rolesMap[user.id] = (data as unknown as UserRoleData[]).map(ur => ur.roles.name);
+          if (userRolesData) {
+            rolesMap[user.id] = (userRolesData as unknown as UserRoleData[]).map(ur => ur.roles.name);
           }
+
+          // Get player info if user is a player
+          const { data: playerData } = await supabase
+            .from('players')
+            .select(`
+              id,
+              first_name,
+              last_name,
+              team_players(
+                teams(
+                  id,
+                  name,
+                  display_name
+                )
+              )
+            `)
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          usersWithTeams.push({
+            ...user,
+            player: playerData ? {
+              ...playerData,
+              teams: playerData.team_players?.map((tp: any) => tp.teams).filter(Boolean) || []
+            } : null
+          });
         }
+        
+        setUsers(usersWithTeams);
         setUserRoles(rolesMap);
       }
 
@@ -101,6 +152,30 @@ export default function UsersManagement() {
     }
   }
 
+  async function handleDeleteUser(userId: string, userName: string, userStatus: string) {
+    // Only allow deletion of inactive/suspended users
+    if (userStatus === 'active') {
+      alert('Benutzer muss zuerst deaktiviert werden, bevor er gelöscht werden kann.');
+      return;
+    }
+
+    if (!confirm(`Möchten Sie den Benutzer "${userName}" wirklich löschen?\n\nHinweis: Bei Spielern wird nur die Verknüpfung gelöscht, das Spielerprofil bleibt erhalten.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await deleteUserAccount(userId);
+      
+      if (error) throw error;
+
+      alert('Benutzer erfolgreich gelöscht');
+      await loadData();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Fehler beim Löschen des Benutzers');
+    }
+  }
+
   if (!isSuperAdmin) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
@@ -108,6 +183,24 @@ export default function UsersManagement() {
       </div>
     );
   }
+
+  // Filter and paginate users
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = !searchTerm || 
+      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+    
+    const matchesRole = roleFilter === 'all' || 
+      (userRoles[user.id]?.includes(roleFilter as UserRole));
+    
+    return matchesSearch && matchesStatus && matchesRole;
+  });
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, startIndex + itemsPerPage);
 
   if (loading) {
     return (
@@ -122,6 +215,49 @@ export default function UsersManagement() {
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
         <p className="text-gray-600 mt-1">Approve users and assign roles</p>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow p-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Suche nach Name oder Email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+          
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          >
+            <option value="all">Alle Status</option>
+            <option value="active">Aktiv</option>
+            <option value="pending">Ausstehend</option>
+            <option value="inactive">Inaktiv</option>
+            <option value="suspended">Gesperrt</option>
+          </select>
+
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          >
+            <option value="all">Alle Rollen</option>
+            {roles.map(role => (
+              <option key={role.id} value={role.name}>{role.name}</option>
+            ))}
+          </select>
+
+          <div className="text-sm text-gray-600 flex items-center">
+            {filteredUsers.length} von {users.length} Benutzern
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -143,12 +279,24 @@ export default function UsersManagement() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {users.map((user) => (
+            {paginatedUsers.map((user) => (
               <tr key={user.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4">
                   <div>
                     <div className="text-sm font-medium text-gray-900">{user.full_name || 'N/A'}</div>
                     <div className="text-sm text-gray-500">{user.email}</div>
+                    {user.player && user.player.teams.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {user.player.teams.map((team) => (
+                          <span
+                            key={team.id}
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
+                          >
+                            {team.display_name || team.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -199,6 +347,16 @@ export default function UsersManagement() {
                         Deactivate
                       </button>
                     )}
+                    {(user.status === 'inactive' || user.status === 'suspended') && (
+                      <button
+                        onClick={() => handleDeleteUser(user.id, user.full_name || user.email, user.status)}
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700"
+                        title="Benutzer löschen"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Löschen
+                      </button>
+                    )}
                     <button
                       onClick={() => setSelectedUser(selectedUser === user.id ? null : user.id)}
                       className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
@@ -243,6 +401,33 @@ export default function UsersManagement() {
             ))}
           </tbody>
         </table>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
+            <div className="text-sm text-gray-700">
+              Seite {currentPage} von {totalPages}
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Zurück
+              </button>
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Weiter
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

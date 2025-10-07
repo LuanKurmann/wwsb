@@ -14,6 +14,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isSuperAdmin: boolean;
   canEdit: boolean;
+  isPlayer: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signUp(email: string, password: string, fullName: string) {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -84,6 +85,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) throw error;
+
+    // Assign player role after successful signup
+    if (data.user) {
+      const { data: playerRole } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('name', 'player')
+        .single();
+
+      if (playerRole) {
+        await supabase.from('user_roles').insert({
+          user_id: data.user.id,
+          role_id: playerRole.id,
+        });
+      }
+    }
   }
 
   async function signIn(email: string, password: string) {
@@ -107,6 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isSuperAdmin = userRoles.includes('super_admin');
   const isAdmin = isSuperAdmin || userRoles.includes('admin');
   const canEdit = isAdmin || userRoles.includes('editor');
+  const isPlayer = userRoles.includes('player') && !isAdmin;
 
   const value: AuthContextType = {
     user,
@@ -120,6 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAdmin,
     isSuperAdmin,
     canEdit,
+    isPlayer,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
