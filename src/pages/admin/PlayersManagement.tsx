@@ -10,6 +10,7 @@ interface Player {
   last_name: string;
   birth_date: string | null;
   is_active: boolean;
+  swiss_id: number | null;
   team_assignments: Array<{
     team: { id: string; name: string };
     jersey_number: number | null;
@@ -225,10 +226,16 @@ export default function PlayersManagement() {
   }
 
   async function deletePlayer(id: string) {
+    const playerToDelete = allPlayers.find(p => p.id === id);
+    
+    if (playerToDelete?.swiss_id) {
+      alert('Spieler von Swiss Unihockey API können nicht gelöscht werden.');
+      return;
+    }
+    
     if (!confirm('Are you sure you want to delete this player?')) return;
 
     try {
-      const playerToDelete = allPlayers.find(p => p.id === id);
       const { error } = await supabase.from('players').delete().eq('id', id);
       if (error) throw error;
       
@@ -257,6 +264,10 @@ export default function PlayersManagement() {
 
   function openModal(player?: Player) {
     if (player) {
+      if (player.swiss_id) {
+        alert('Spieler von Swiss Unihockey API können nicht bearbeitet werden.');
+        return;
+      }
       setEditingPlayer(player);
       setFormData({
         first_name: player.first_name,
@@ -464,10 +475,17 @@ export default function PlayersManagement() {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {currentPlayers.map((player) => (
-              <tr key={player.id}>
+              <tr key={player.id} className={player.swiss_id ? 'bg-gray-50' : ''}>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
-                    {player.first_name} {player.last_name}
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium text-gray-900">
+                      {player.first_name} {player.last_name}
+                    </div>
+                    {player.swiss_id && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800" title="Von Swiss Unihockey API synchronisiert">
+                        🇨🇭 API
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -496,12 +514,22 @@ export default function PlayersManagement() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   {canEdit && (
-                    <button onClick={() => openModal(player)} className="text-blue-600 hover:text-blue-900 mr-4" title="Edit player">
+                    <button 
+                      onClick={() => openModal(player)} 
+                      className={`mr-4 ${player.swiss_id ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-900'}`}
+                      title={player.swiss_id ? 'Spieler von Swiss Unihockey API - kann nicht bearbeitet werden' : 'Edit player'}
+                      disabled={!!player.swiss_id}
+                    >
                       <Edit2 className="w-4 h-4" />
                     </button>
                   )}
                   {isAdmin && (
-                    <button onClick={() => deletePlayer(player.id)} className="text-red-600 hover:text-red-900" title="Delete player">
+                    <button 
+                      onClick={() => deletePlayer(player.id)} 
+                      className={player.swiss_id ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'}
+                      title={player.swiss_id ? 'Spieler von Swiss Unihockey API - kann nicht gelöscht werden' : 'Delete player'}
+                      disabled={!!player.swiss_id}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}

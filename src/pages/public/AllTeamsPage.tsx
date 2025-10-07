@@ -38,6 +38,14 @@ export default function AllTeamsPage() {
     }
   }
 
+  // Separate teams by category
+  const kinderTeams = teams.filter(team => 
+    team.category.toLowerCase().includes('kinder')
+  );
+  const otherTeams = teams.filter(team => 
+    !team.category.toLowerCase().includes('kinder')
+  );
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -45,6 +53,38 @@ export default function AllTeamsPage() {
       </div>
     );
   }
+
+  const TeamCard = ({ team }: { team: Team }) => (
+    <Link
+      to={`/teams/${team.slug}`}
+      className="block bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition transform hover:-translate-y-1"
+    >
+      <div className="h-48 w-full bg-gray-200 flex items-center justify-center relative">
+        {team.team_photo_url ? (
+          <img
+            src={team.team_photo_url}
+            alt={team.display_name || team.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <Shield className="w-20 h-20 text-gray-400" />
+        )}
+        <span className="absolute bottom-0 right-0 bg-blue-600 text-white text-xs font-semibold px-3 py-1 m-2 rounded-full">
+          {team.category}
+        </span>
+      </div>
+      <div className="p-5">
+        <h2 className="text-xl font-bold text-gray-900 mb-2">{team.display_name || team.name}</h2>
+        {team.description ? (
+          <p className="text-sm text-gray-600 line-clamp-3">
+            {team.description}
+          </p>
+        ) : (
+          <p className="text-sm text-gray-500 italic">Keine Beschreibung vorhanden.</p>
+        )}
+      </div>
+    </Link>
+  );
 
   return (
     <div>
@@ -55,48 +95,47 @@ export default function AllTeamsPage() {
         </div>
       </section>
 
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {teams.length > 0 ? (
+      {/* Andere Teams Bereich - zuerst */}
+      {otherTeams.length > 0 && (
+        <section className="py-16 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-8">
+              <h2 className="text-4xl font-bold text-gray-900 mb-2">Teams</h2>
+              <p className="text-lg text-gray-600">Unsere Mannschaften</p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {teams.map((team) => (
-                <Link
-                  key={team.id}
-                  to={`/teams/${team.slug}`}
-                  className="block bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition transform hover:-translate-y-1"
-                >
-                  <div className="h-48 w-full bg-gray-200 flex items-center justify-center relative">
-                    {team.team_photo_url ? (
-                      <img
-                        src={team.team_photo_url}
-                        alt={team.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Shield className="w-20 h-20 text-gray-400" />
-                    )}
-                    <span className="absolute bottom-0 right-0 bg-blue-600 text-white text-xs font-semibold px-3 py-1 m-2 rounded-full">
-                        {team.category}
-                    </span>
-                  </div>
-                  <div className="p-5">
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">{team.display_name || team.name}</h2>
-                    {team.description ? (
-                        <p className="text-sm text-gray-600 line-clamp-3">
-                           {team.description}
-                        </p>
-                    ) : (
-                        <p className="text-sm text-gray-500 italic">Keine Beschreibung vorhanden.</p>
-                    )}
-                  </div>
-                </Link>
+              {otherTeams.map((team) => (
+                <TeamCard key={team.id} team={team} />
               ))}
             </div>
-          ) : (
+          </div>
+        </section>
+      )}
+
+      {/* Kinderunihockey Bereich - danach */}
+      {kinderTeams.length > 0 && (
+        <section className="py-16 bg-yellow-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-8">
+              <h2 className="text-4xl font-bold text-gray-900 mb-2">Kinderunihockey</h2>
+              <p className="text-lg text-gray-600">Unsere jüngsten Talente</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {kinderTeams.map((team) => (
+                <TeamCard key={team.id} team={team} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {teams.length === 0 && (
+        <section className="py-16 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <p className="text-gray-500 text-center py-12">Keine aktiven Teams gefunden.</p>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

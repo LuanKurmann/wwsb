@@ -8,6 +8,7 @@ interface Team {
   name: string;
   display_name: string | null;
   slug: string;
+  category: string;
 }
 
 export default function PublicLayout() {
@@ -22,7 +23,7 @@ export default function PublicLayout() {
     try {
       const { data, error } = await supabase
         .from('teams')
-        .select('id, name, display_name, slug')
+        .select('id, name, display_name, slug, category')
         .eq('is_active', true)
         .order('display_order');
 
@@ -32,6 +33,14 @@ export default function PublicLayout() {
       console.error('Error loading teams:', error);
     }
   }
+
+  // Separate teams by category
+  const otherTeams = teams.filter(team => 
+    !team.category.toLowerCase().includes('kinder')
+  );
+  const kinderTeams = teams.filter(team => 
+    team.category.toLowerCase().includes('kinder')
+  );
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -53,17 +62,37 @@ export default function PublicLayout() {
                   Teams
                   <ChevronDown className="w-4 h-4 ml-1 transition-transform duration-200 group-hover:rotate-180" />
                 </Link>                
-                <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-1">
-                    {teams.map((team) => (
-                      <Link
-                        key={team.id}
-                        to={`/teams/${team.slug}`}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
-                      >
-                        {team.display_name || team.name}
-                      </Link>
-                    ))}
+                    {otherTeams.length > 0 && (
+                      <>
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Teams</div>
+                        {otherTeams.map((team) => (
+                          <Link
+                            key={team.id}
+                            to={`/teams/${team.slug}`}
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                          >
+                            {team.display_name || team.name}
+                          </Link>
+                        ))}
+                      </>
+                    )}
+                    {kinderTeams.length > 0 && (
+                      <>
+                        {otherTeams.length > 0 && <div className="border-t border-gray-200 my-1"></div>}
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Kinderunihockey</div>
+                        {kinderTeams.map((team) => (
+                          <Link
+                            key={team.id}
+                            to={`/teams/${team.slug}`}
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50"
+                          >
+                            {team.display_name || team.name}
+                          </Link>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -118,17 +147,39 @@ export default function PublicLayout() {
             <div className="md:hidden py-4 border-t">
               <div className="flex flex-col space-y-4">
                 <Link to="/" className="text-gray-700 hover:text-blue-600 transition" onClick={() => setMobileMenuOpen(false)}>Startseite</Link>
-                <div className="text-gray-500 text-sm font-semibold">Teams</div>
-                {teams.map((team) => (
-                  <Link
-                    key={team.id}
-                    to={`/teams/${team.slug}`}
-                    className="text-gray-700 hover:text-blue-600 transition pl-4"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {team.display_name || team.name}
-                  </Link>
-                ))}
+                
+                {otherTeams.length > 0 && (
+                  <>
+                    <div className="text-gray-500 text-sm font-semibold">Teams</div>
+                    {otherTeams.map((team) => (
+                      <Link
+                        key={team.id}
+                        to={`/teams/${team.slug}`}
+                        className="text-gray-700 hover:text-blue-600 transition pl-4"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        {team.display_name || team.name}
+                      </Link>
+                    ))}
+                  </>
+                )}
+                
+                {kinderTeams.length > 0 && (
+                  <>
+                    <div className="text-gray-500 text-sm font-semibold">Kinderunihockey</div>
+                    {kinderTeams.map((team) => (
+                      <Link
+                        key={team.id}
+                        to={`/teams/${team.slug}`}
+                        className="text-gray-700 hover:text-blue-600 transition pl-4"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        {team.display_name || team.name}
+                      </Link>
+                    ))}
+                  </>
+                )}
+                
                 <div className="text-gray-500 text-sm font-semibold">Verein</div>
                 <Link to="/geschichte" className="text-gray-700 hover:text-blue-600 transition pl-4" onClick={() => setMobileMenuOpen(false)}>Geschichte</Link>
                 <Link to="/funktionaere" className="text-gray-700 hover:text-blue-600 transition pl-4" onClick={() => setMobileMenuOpen(false)}>Funktionäre</Link>
