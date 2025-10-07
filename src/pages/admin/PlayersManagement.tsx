@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, CreditCard as Edit2, Trash2, X, Filter, Upload, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, X, Filter, Upload, Search, ChevronLeft, ChevronRight, ArrowUpDown, Mail, UserCheck, Clock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { logCreate, logUpdate, logDelete } from '../../lib/activityLog';
+import { sendPlayerInvitation, resendInvitation } from '../../lib/playerInvitations';
 
 interface Player {
   id: string;
@@ -11,12 +12,18 @@ interface Player {
   birth_date: string | null;
   is_active: boolean;
   swiss_id: number | null;
+  user_id: string | null;
   team_assignments: Array<{
     team: { id: string; name: string };
     jersey_number: number | null;
     position: 'goalkeeper' | 'defender' | 'forward' | null;
     photo_url: string | null;
   }>;
+  invitation?: {
+    status: string;
+    email: string;
+    expires_at: string;
+  };
 }
 
 interface Team {
@@ -26,7 +33,7 @@ interface Team {
 }
 
 export default function PlayersManagement() {
-  const { canEdit, isAdmin } = useAuth();
+  const { canEdit, isAdmin, user } = useAuth();
   const [players, setPlayers] = useState<Player[]>([]);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -48,6 +55,10 @@ export default function PlayersManagement() {
     is_active: true,
   });
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [invitingPlayer, setInvitingPlayer] = useState<Player | null>(null);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [sendingInvite, setSendingInvite] = useState(false);
 
   useEffect(() => {
     loadPlayers();
@@ -72,6 +83,16 @@ export default function PlayersManagement() {
 
       if (error) throw error;
 
+      // Load pending invitations
+      const { data: invitations } = await supabase
+        .from('player_invitations')
+        .select('player_id, status, email, expires_at')
+        .eq('status', 'pending');
+
+      const invitationsMap = new Map(
+        invitations?.map(inv => [inv.player_id, inv]) || []
+      );
+
       const playersWithTeams = (data || []).map((player: any) => ({
         ...player,
         team_assignments:
@@ -82,7 +103,8 @@ export default function PlayersManagement() {
               jersey_number: tp.jersey_number,
               position: tp.position,
               photo_url: tp.photo_url,
-            })) || []
+            })) || [],
+        invitation: invitationsMap.get(player.id)
       }));
 
       setAllPlayers(playersWithTeams);
@@ -373,6 +395,77 @@ export default function PlayersManagement() {
     }
   }
 
+  function openInviteModal(player: Player) {
+    setInvitingPlayer(player);
+    setInviteEmail('');
+    setShowInviteModal(true);
+  }
+
+  async function handleSendInvite() {
+    if (!invitingPlayer || !inviteEmail || !user) return;
+
+    setSendingInvite(true);
+    try {
+      const { error } = await sendPlayerInvitation(
+        invitingPlayer.id,
+        inviteEmail,
+        user.id
+      );
+
+      if (error) {
+        alert(error.message);
+      } else {
+        alert(`Einladung wurde an ${inviteEmail} gesendet!`);
+        setShowInviteModal(false);
+        loadPlayers();
+      }
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      alert('Fehler beim Senden der Einladung');
+    } finally {
+      setSendingInvite(false);
+    }
+  }
+
+  async function handleResendInvite(playerId: string) {
+    if (!confirm('Möchten Sie die Einladung erneut senden?')) return;
+
+    try {
+      const { error } = await resendInvitation(playerId);
+      if (error) {
+        alert(error.message);
+      } else {
+        alert('Einladung wurde erneut gesendet!');
+        loadPlayers();
+      }
+    } catch (error) {
+      console.error('Error resending invitation:', error);
+      alert('Fehler beim erneuten Senden der Einladung');
+    }
+  }
+
+  function getAccountStatus(player: Player) {
+    if (player.user_id) {
+      return {
+        icon: <UserCheck className="w-4 h-4 text-green-600" />,
+        text: 'Account aktiv',
+        color: 'text-green-600'
+      };
+    }
+    if (player.invitation?.status === 'pending') {
+      return {
+        icon: <Clock className="w-4 h-4 text-orange-600" />,
+        text: 'Einladung ausstehend',
+        color: 'text-orange-600'
+      };
+    }
+    return {
+      icon: <Mail className="w-4 h-4 text-gray-400" />,
+      text: 'Kein Account',
+      color: 'text-gray-400'
+    };
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -469,6 +562,7 @@ export default function PlayersManagement() {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Team Assignments</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Account</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
@@ -483,7 +577,7 @@ export default function PlayersManagement() {
                     </div>
                     {player.swiss_id && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800" title="Von Swiss Unihockey API synchronisiert">
-                        🇨🇭 API
+                        API
                       </span>
                     )}
                   </div>
@@ -508,6 +602,19 @@ export default function PlayersManagement() {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    {getAccountStatus(player).icon}
+                    <span className={`text-xs ${getAccountStatus(player).color}`}>
+                      {getAccountStatus(player).text}
+                    </span>
+                  </div>
+                  {player.invitation && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {player.invitation.email}
+                    </div>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${player.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                     {player.is_active ? 'Active' : 'Inactive'}
                   </span>
@@ -524,14 +631,34 @@ export default function PlayersManagement() {
                     </button>
                   )}
                   {isAdmin && (
-                    <button 
-                      onClick={() => deletePlayer(player.id)} 
-                      className={player.swiss_id ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'}
-                      title={player.swiss_id ? 'Spieler von Swiss Unihockey API - kann nicht gelöscht werden' : 'Delete player'}
-                      disabled={!!player.swiss_id}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <>
+                      {!player.user_id && !player.invitation && (
+                        <button
+                          onClick={() => openInviteModal(player)}
+                          className="text-green-600 hover:text-green-900 mr-4"
+                          title="Spieler einladen"
+                        >
+                          <Mail className="w-4 h-4" />
+                        </button>
+                      )}
+                      {player.invitation?.status === 'pending' && (
+                        <button
+                          onClick={() => handleResendInvite(player.id)}
+                          className="text-orange-600 hover:text-orange-900 mr-4"
+                          title="Einladung erneut senden"
+                        >
+                          <Clock className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => deletePlayer(player.id)} 
+                        className={player.swiss_id ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'}
+                        title={player.swiss_id ? 'Spieler von Swiss Unihockey API - kann nicht gelöscht werden' : 'Delete player'}
+                        disabled={!!player.swiss_id}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                 </td>
               </tr>
@@ -817,6 +944,68 @@ export default function PlayersManagement() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invitation Modal */}
+      {showInviteModal && invitingPlayer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">
+                Spieler einladen
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Laden Sie <strong>{invitingPlayer.first_name} {invitingPlayer.last_name}</strong> ein, 
+                einen Account zu erstellen.
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    E-Mail-Adresse *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="spieler@example.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Der Spieler erhält eine E-Mail mit einem Einladungslink.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => { setShowInviteModal(false); setInvitingPlayer(null); setInviteEmail(''); }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  disabled={sendingInvite}
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={handleSendInvite}
+                  disabled={!inviteEmail || sendingInvite}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {sendingInvite ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Wird gesendet...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      Einladung senden
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

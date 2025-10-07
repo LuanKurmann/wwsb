@@ -10,6 +10,8 @@ import ContactPage from './pages/public/ContactPage';
 import DocumentsPage from './pages/public/DocumentsPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import InvitationPage from './pages/public/InvitationPage';
+import PlayerDashboard from './pages/player/PlayerDashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import UsersManagement from './pages/admin/UsersManagement';
 import TeamsManagement from './pages/admin/TeamsManagement';
@@ -22,6 +24,7 @@ import BoardMembersManagement from './pages/admin/BoardMembersManagement';
 import MessagesManagement from './pages/admin/MessagesManagement';
 import ActivityLogsPage from './pages/admin/ActivityLogsPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import AdminProtectedRoute from './components/auth/AdminProtectedRoute';
 import AllTeamsPage from './pages/public/AllTeamsPage';
 
 function App() {
@@ -41,13 +44,14 @@ function App() {
 
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/invite/:token" element={<InvitationPage />} />
 
           <Route
             path="/admin"
             element={
-              <ProtectedRoute>
+              <AdminProtectedRoute>
                 <AdminLayout />
-              </ProtectedRoute>
+              </AdminProtectedRoute>
             }
           >
             <Route index element={<AdminDashboard />} />
@@ -62,6 +66,18 @@ function App() {
             <Route path="messages" element={<MessagesManagement />} />
             <Route path="activity-logs" element={<ActivityLogsPage />} />
           </Route>
+
+          {/* Player Portal */}
+          <Route
+            path="/player/*"
+            element={
+              <ProtectedRoute>
+                <Routes>
+                  <Route path="dashboard" element={<PlayerDashboard />} />
+                </Routes>
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </AuthProvider>
     </Router>

@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -17,9 +18,28 @@ export default function LoginPage() {
 
     try {
       await signIn(email, password);
-      navigate('/admin');
+      
+      // Load user roles to determine redirect
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: rolesData } = await supabase
+          .from('user_roles')
+          .select('*, roles(*)')
+          .eq('user_id', user.id);
+
+        const roles = rolesData?.map((ur: any) => ur.roles.name) || [];
+        
+        // Redirect based on role
+        if (roles.includes('super_admin') || roles.includes('admin') || roles.includes('editor')) {
+          navigate('/admin');
+        } else if (roles.includes('player')) {
+          navigate('/player/dashboard');
+        } else {
+          navigate('/');
+        }
+      }
     } catch (err) {
-      setError('Failed to sign in. Please check your credentials.');
+      setError('Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -34,7 +54,7 @@ export default function LoginPage() {
             White Wings
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Admin Portal
+            Anmelden
           </p>
         </div>
         <div className="bg-white rounded-lg shadow-xl p-8">
@@ -47,7 +67,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
+                E-Mail-Adresse
               </label>
               <input
                 id="email"
@@ -63,7 +83,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                Passwort
               </label>
               <input
                 id="password"
@@ -83,19 +103,19 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Signing in...' : 'Sign in'}
+                {loading ? 'Anmeldung läuft...' : 'Anmelden'}
               </button>
             </div>
 
             <div className="text-center">
               <Link to="/register" className="text-sm text-blue-600 hover:text-blue-500">
-                Need an account? Register here
+                Noch kein Account? Hier registrieren
               </Link>
             </div>
 
             <div className="text-center">
               <Link to="/" className="text-sm text-gray-600 hover:text-gray-500">
-                Back to website
+                Zurück zur Website
               </Link>
             </div>
           </form>

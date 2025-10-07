@@ -39,11 +39,11 @@ export default function RegisterPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Registration Successful!</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Registrierung erfolgreich!</h3>
             <p className="text-gray-600 mb-4">
-              Your account has been created and is pending approval from an administrator. You will be able to log in once your account has been approved.
+              Dein Spieler-Account wurde erstellt. Du kannst dich jetzt einloggen und auf dein Dashboard zugreifen.
             </p>
-            <p className="text-sm text-gray-500">Redirecting to login page...</p>
+            <p className="text-sm text-gray-500">Weiterleitung zur Login-Seite...</p>
           </div>
         </div>
       </div>
@@ -58,7 +58,7 @@ export default function RegisterPage() {
             White Wings
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Create your admin account
+            Erstelle deinen Spieler-Account
           </p>
         </div>
         <div className="bg-white rounded-lg shadow-xl p-8">
@@ -71,7 +71,7 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-                Full Name
+                Vollständiger Name
               </label>
               <input
                 id="fullName"
@@ -86,7 +86,7 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
+                E-Mail-Adresse
               </label>
               <input
                 id="email"
@@ -102,7 +102,7 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                Passwort
               </label>
               <input
                 id="password"
@@ -122,19 +122,19 @@ export default function RegisterPage() {
                 disabled={loading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Creating account...' : 'Create account'}
+                {loading ? 'Account wird erstellt...' : 'Account erstellen'}
               </button>
             </div>
 
             <div className="text-center">
               <Link to="/login" className="text-sm text-blue-600 hover:text-blue-500">
-                Already have an account? Sign in
+                Bereits ein Account? Anmelden
               </Link>
             </div>
 
             <div className="text-center">
               <Link to="/" className="text-sm text-gray-600 hover:text-gray-500">
-                Back to website
+                Zurück zur Website
               </Link>
             </div>
           </form>
